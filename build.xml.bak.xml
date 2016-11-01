@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project default="all">
+    
+    <!-- Define your Jmeter Home & Your Report Title & Interval Time Between Test-->
+    <property name="report.title" value="数据中心接口测试报告"/>
+    <property name="jmeter-home" location="/Users/chinaskin/Tools/apache-jmeter-2.13"/>
+    <property name = "interval-time-in-seconds" value ="10"/>
+    <!-- default path config, you can modify for your own requirement;Generally, you do not need to modify -->
+    <property environment="env"/>
+    <property name="resultBase" value="results"/>
+    <property name="results.report" value ="report"/>
+    <property name="results.html" value ="html"/>
+    <property name="jmxs.dir" value= "jmxs"/>
+    <tstamp><format property="report.datestamp" pattern="yyyy-MM-dd-HH-mm"/></tstamp>
+    <property name="time" value="${report.datestamp}"/>
+    
+    
+    
+    <!-- Diffrent version of Jmeter has its own ant-jmeter.jar,Please input the right versioin -->
+    <path id="ant.jmeter.classpath">
+        <pathelement location="${jmeter-home}/lib/ant-jmeter-1.1.1.jar" />
+    </path>
+    
+    <taskdef name="jmeter" classname="org.programmerplanet.ant.taskdefs.jmeter.JMeterTask"  classpathref="ant.jmeter.classpath"/>
+    
+    <!-- just to support foreach by ant -->
+    <taskdef resource="net/sf/antcontrib/antlib.xml" >
+        <classpath>
+            <pathelement location="/Users/chinaskin/Tools/apache-ant-1.9.6/lib/ant-contrib-1.0b3.jar"/>
+        </classpath>
+    </taskdef>
+    
+    
+    <!-- use this config to generate html report; if not, may not display Min/Max Time in html-->
+    
+    
+    <path id="xslt.classpath">
+        <fileset dir="${jmeter-home}/lib" includes="xalan*.jar"/>
+        <fileset dir="${jmeter-home}/lib" includes="serializer*.jar"/>
+    </path>
+    
+    
+    <!--运行之前首先创建临时结果文件夹-->
+    <target name="create-folder">
+        <delete dir="${resultBase}/temp"/>
+        <mkdir  dir="${resultBase}/temp/${results.report}"/>
+        <mkdir  dir="${resultBase}/temp/${results.html}"/>
+        <!--<mkdir  dir="${resultBase}/${report.datestamp}/${results.report}/"/>-->
+    </target>
+    
+    
+    
+    <target name="all-test" depends="create-folder">
+        <foreach param="jmxfile" target="test">
+            <fileset dir="${jmxs.dir}">
+                <include name="${jmxsfile}"/>
+            </fileset>
+        </foreach>
+    </target>
+    
+    
+    
+    
+    <target name="test" >
+        <basename property="jmx.filename" file="${jmxfile}" suffix=".jmx"/>
+        
+        <jmeter
+            jmeterhome="${jmeter-home}"
+            testplan="./${jmxs.dir}/${jmx.filename}.jmx"
+            resultlogdir="${resultBase}/temp/${results.report}"
+            resultlog="${resultBase}/temp/${results.report}/${jmx.filename}.jtl">
+            <jvmarg value="-Xincgc"/>
+            <jvmarg value="-Xms1024m"/>
+            <jvmarg value="-Xmx1024m"/>
+            <property name="jmeter.save.saveservice.output_format" value="xml"/>
+        </jmeter>
+        
+        <sleep seconds="3"></sleep>
+        
+        <!--Generate html report-->
+        <xslt in="${resultBase}/temp/${results.report}/${jmx.filename}.jtl"
+              out="${resultBase}/temp/${results.html}/${jmx.filename}.html"
+              classpathref="xslt.classpath"
+              style="${jmeter-home}/extras/jmeter-results-detail-report_21.xsl" >
+            <param name="dateReport" expression="${report.datestamp}"/>
+            <param name="showData" expression="n"/>
+            <param name="titleReport" expression="${report.title}:[${jmx.filename}]"/>
+        </xslt>
+        
+        <sleep seconds="${interval-time-in-seconds}"></sleep>
+    </target>
+    
+    
+    
+    
+    <target name="copy-images" depends="all-test">
+        <!--<copy file="${jmeter-home}/extras/expand.png" tofile="${results.html}/expand.png"/>
+        <copy file="${jmeter-home}/extras/collapse.png" tofile="${results.html}/collapse.png"/>-->
+        <copydir src="${resultBase}/temp" dest="${resultBase}/${report.datestamp}"/>
+        <!--<copydir src="${results.html}" dest="${resultBase}/${report.datestamp}/html"/>
+        <copydir src="${resultBase}/${report.datestamp}/html" dest="${resultBase}/${results.html}"/>
+        <copydir src="${resultBase}/${report.datestamp}/report" dest="${resultBase}/${results.report}"/>-->
+        <delete dir="${resultBase}/temp"/>
+    </target>
+    
+    <target name="all" depends="all-test, copy-images" />
+</project>
